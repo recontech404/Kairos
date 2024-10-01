@@ -1,0 +1,20 @@
+<!doctype html>
+<html lang="en">
+	<head>
+		<meta charset="utf-8" />
+		<link rel="icon" href="assets/favicon.png" />
+		<script src="assets/particles.js"></script>
+		<meta name="viewport" content="width=device-width, initial-scale=1" />
+		%sveltekit.head%
+	</head>
+	<body data-sveltekit-preload-data="hover" class="bg-slate-950 text-white relative">
+		<div style="display: contents" class="relative z-[1]">%sveltekit.body%</div>
+	
+		<div class="absolute min-h-screen top-0 left-0 w-full z-[-1] opacity-90" style="pointer-events: none;">
+			<div id="particles-js" class="absolute inset-0" />
+		</div>
+		<script>
+			particlesJS.load('particles-js', 'assets/particles.json');
+		</script>
+	</body>
+</html>

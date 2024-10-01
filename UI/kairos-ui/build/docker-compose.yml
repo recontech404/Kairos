@@ -1,0 +1,9 @@
+services:
+  kairos-ui:
+    container_name: kairos-ui
+    image: recontech404/kairos-ui:v1
+    restart: unless-stopped
+    ports:
+      - "8000:8000"
+    environment:
+      - PUBLIC_BASE_URL=http://127.0.0.1:8080

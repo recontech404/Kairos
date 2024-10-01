@@ -1,0 +1,6 @@
+Runner/eBPF/output/
+Runner/main
+Runner/eBPF/vmlinux.h
+Runner/eBPF/main.bpf.o
+UI/kairos-ui/node_modules/*
+Server/data/kairos.sqlite
