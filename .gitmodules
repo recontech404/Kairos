@@ -1,3 +1,0 @@
-[submodule "Runner/eBPF/libbpf"]
-	path = Runner/eBPF/libbpf
-	url = https://github.com/libbpf/libbpf.git
