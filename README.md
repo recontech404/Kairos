@@ -21,10 +21,12 @@
 
 ![Pyloose](/Docs/kairos-pyloose.gif)
 
-https://github.com/user-attachments/assets/af2afed5-139c-477a-8126-2d9c5cf9e3b8
+
+https://github.com/user-attachments/assets/61c858c2-91c7-4be0-9dc2-4b12e50333ad
 
 
-https://github.com/user-attachments/assets/5341536e-09ba-4a4a-92f5-c8f89c9415e4
+https://github.com/user-attachments/assets/d9aeccce-3b5e-489d-8d84-ba0435122c9c
+
 
 ## Tech Stack
 
