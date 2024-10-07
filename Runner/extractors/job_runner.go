@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"kairos-runner/adapters"
 	"kairos-runner/types"
+	"os"
 	"os/exec"
 	"time"
 
@@ -111,6 +112,7 @@ func runMalwareJob(ctx context.Context, job types.MalwareJob, wsh *adapters.WSHa
 			case <-ticker.C:
 				log.Info("Terminating Malware As Run Duration Reached")
 				malCancel()
+				killRelatedPids()
 				if job.SaveCMDOutput {
 					sendCMDOutputData(ctx, job.JobID, &cmdStdout, wsh)
 				}
@@ -157,6 +159,7 @@ func runMalwareJob(ctx context.Context, job types.MalwareJob, wsh *adapters.WSHa
 				if cmd.Process != nil {
 					malCancel()
 				}
+				killRelatedPids()
 
 				if job.SaveCMDOutput {
 					sendCMDOutputData(ctx, job.JobID, &cmdStdout, wsh)
@@ -202,4 +205,26 @@ func sendMalwareFailedToRunMsg(ctx context.Context, id uuid.UUID, wsh *adapters.
 		return fmt.Errorf("unable to send malware failure msg: %v", err)
 	}
 	return nil
+}
+
+func killRelatedPids() {
+	for pid, _ := range malwarePids {
+		process, err := os.FindProcess(int(pid))
+		if err != nil {
+			continue //if pid is not found skip
+		}
+		if err = process.Kill(); err != nil {
+			log.Warnf("unable to kill malware pid: %d err: %v", pid, err)
+		}
+	}
+
+	for pid, _ := range benignPids {
+		process, err := os.FindProcess(int(pid))
+		if err != nil {
+			continue
+		}
+		if err = process.Kill(); err != nil {
+			continue //process likely already finished
+		}
+	}
 }

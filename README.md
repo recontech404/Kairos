@@ -40,7 +40,13 @@ https://github.com/user-attachments/assets/d9aeccce-3b5e-489d-8d84-ba0435122c9c
 - Debian Machine (tested with Ubuntu 22.04 LTS)
 - Golang [Install](https://go.dev/doc/install) 
 - Ollama [Install](https://github.com/ollama/ollama?tab=readme-ov-file#linux) (24GB VRAM recommended)
-- Docker [Install](https://docs.docker.com/engine/install/debian/)
+- Docker & Docker-Compose [Install](https://docs.docker.com/engine/install/debian/)
+
+#### Ollama Model Setup
+On the Ollama host pull the llama3.1:8b model
+```shell
+ollama pull llama3.1:8b
+```
 
 ### 1. Clone the repository
 ```shell
@@ -50,7 +56,7 @@ cd Kairos
 
 ### 2. Install dependencies (for Debian)
 ```shell
-sudo apt install build-essential libbpf-dev clang
+sudo apt install build-essential libbpf-dev clang linux-tools-$(uname -r)
 ```
 
 #### *Note:* Modify the env values for network in the docker-compose.yml's if needed
@@ -72,7 +78,7 @@ cd Runner
 make
 ```
 
-#### Note: when running the *make* command in the Runner folder for the first time, you will also need to install the *correct* linux headers for bpf for your kernel version. You should get a warning such as:
+#### Note: when running the *make* command in the Runner folder for the first time, you will may need to re-install the *correct* linux headers for bpf for your kernel version if the make command failes:
 ```shell
 WARNING: bpftool not found for kernel 6.5.0-44
 

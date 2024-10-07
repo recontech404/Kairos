@@ -370,6 +370,12 @@ func (s *Server) UIAddJob(c *gin.Context) {
 		return
 	}
 
+	timeNow := time.Now().UTC()
+
+	if uiJob.Name == "" {
+		uiJob.Name = timeNow.Format("15:04:05") + " UTC"
+	}
+
 	if uiJob.RunDuration < 2 || uiJob.RunDuration > 90 {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "RunDuration has to been between 2 and 90 seconds"})
 		return
@@ -421,7 +427,7 @@ func (s *Server) UIAddJob(c *gin.Context) {
 		Arch:                 uiJob.Arch,
 		RunDuration:          job.RunDuration,
 		SaveCMDOutput:        job.SaveCMDOutput,
-		CreatedTime:          time.Now().UTC(),
+		CreatedTime:          timeNow,
 		Status:               types.Pending,
 		SystemPromptOverride: uiJob.SystemPromptOverride,
 	}

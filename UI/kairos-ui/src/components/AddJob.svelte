@@ -143,7 +143,7 @@
             <input type="checkbox" bind:checked={formData.keep_alive} class="form-checkbox" />
           </div>
           <div>
-            <label for="runDuration" class="inline-block mr-2">Run Duration: </label>
+            <label for="runDuration" class="inline-block mr-2">Run Duration Seconds: </label>
             <input type="number" bind:value={formData.run_duration} class="form-input w-20 text-black" />
           </div>
           <div>
