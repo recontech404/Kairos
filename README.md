@@ -78,7 +78,7 @@ cd Runner
 make
 ```
 
-#### Note: when running the *make* command in the Runner folder for the first time, you will may need to re-install the *correct* linux headers for bpf for your kernel version if the make command failes:
+#### Note: when running the *make* command in the Runner folder for the first time, you will may need to re-install the *correct* linux headers for bpf for your kernel version if the make command fails:
 ```shell
 WARNING: bpftool not found for kernel 6.5.0-44
 
