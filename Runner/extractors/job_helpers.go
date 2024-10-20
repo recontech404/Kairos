@@ -74,22 +74,22 @@ EPFC will check if the parent pid is benign (known but not monitored).
 If the ppid is known *and* the filepath (bin path) is not user excluded,
 it will add the new execve pid as a malicious pid to monitor.
 */
-func execvePidFilterCheck(pid, ppid uint32, binPath string, addPidSSLChan chan<- uint32) {
+func execvePidFilterCheck(pid, ppid uint32, binPath string, addPidChan chan<- uint32) {
 	if checkPidIsBenign(ppid) {
 		if len(getGlobalBinExclusions()) > 0 {
 			for _, exl := range getGlobalBinExclusions() {
 				if !strings.Contains(binPath, exl) {
 					addPidToFilter(pid)
-					addPidSSLChan <- pid //always add pid to ssl map if it is related
+					addPidChan <- pid //always add pid to ssl map if it is related
 					break
 				} else {
 					addBenignPid(pid)
-					addPidSSLChan <- pid
+					addPidChan <- pid
 				}
 			}
 		} else {
 			addPidToFilter(pid)
-			addPidSSLChan <- pid
+			addPidChan <- pid
 		}
 
 	}

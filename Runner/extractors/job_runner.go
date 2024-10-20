@@ -91,7 +91,7 @@ func runMalwareJob(ctx context.Context, job types.MalwareJob, wsh *adapters.WSHa
 	var cmdStdout bytes.Buffer
 
 	if !job.RunCommand {
-		log.Printf("Starting Malware Job With Args -> %s", job.FileArgs)
+		log.Printf("Starting Malware File Job With Args -> %s", job.FileArgs)
 		exe, err := memexec.New(job.MalwareFile)
 		if err != nil {
 			return fmt.Errorf("unable to memexec: %v", err)
@@ -107,6 +107,7 @@ func runMalwareJob(ctx context.Context, job types.MalwareJob, wsh *adapters.WSHa
 			return fmt.Errorf("unable to start malware file: %v", err)
 		}
 		addPidToFilter(uint32(cmd.Process.Pid))
+		wsh.AddPidChan <- (uint32(cmd.Process.Pid))
 		for {
 			select {
 			case <-ticker.C:
@@ -134,7 +135,7 @@ func runMalwareJob(ctx context.Context, job types.MalwareJob, wsh *adapters.WSHa
 			setGlobalBinExclusions(job.RunCommandEL)
 			log.Infof("Adding Bin Exclusions: %v", job.RunCommandEL)
 		}
-		log.Printf("Starting Malware Job With Args -> %v", job.RunCommandArgs)
+		log.Printf("Starting Malware Run Job With Args -> %v", job.RunCommandArgs)
 		var args []string
 		bin := job.RunCommandArgs[0]
 

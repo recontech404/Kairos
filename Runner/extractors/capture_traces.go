@@ -20,8 +20,9 @@ type singleC2 struct {
 }
 
 const (
-	eBPFCategory = "syscalls"
-	mapName      = "events"
+	eBPFSysCategory = "syscalls"
+	eBPFNetCategory = "net"
+	mapName         = "events"
 )
 
 func setupeBPFProgramTracepoints(bpfModule *bpf.Module) (*bpf.Module, error) {
@@ -30,14 +31,23 @@ func setupeBPFProgramTracepoints(bpfModule *bpf.Module) (*bpf.Module, error) {
 		if err != nil {
 			return nil, fmt.Errorf("unable to get ebpf program: %s err:%v", program, err)
 		}
-		if _, err := prog.AttachTracepoint(eBPFCategory, tracepoint); err != nil {
+		if _, err := prog.AttachTracepoint(eBPFSysCategory, tracepoint); err != nil {
 			return nil, fmt.Errorf("unable to attach tracepoint: %s error: %v", tracepoint, err)
 		}
+	}
+
+	//DNS program in net tracepoint
+	prog, err := bpfModule.GetProgram(types.Handle_dns)
+	if err != nil {
+		return nil, fmt.Errorf("dns err: %v", err)
+	}
+	if _, err := prog.AttachTracepoint(eBPFNetCategory, types.Net_dev_queue); err != nil {
+		return nil, fmt.Errorf("attach dns err: %v", err)
 	}
 	return bpfModule, nil
 }
 
-func processTracepointEvent(verboseLog bool, rawEvent []byte, sendEventChan chan<- []byte, c2EventChan chan<- singleC2, addPidSSLChan chan<- uint32) error {
+func processTracepointEvent(verboseLog bool, rawEvent []byte, sendEventChan chan<- []byte, c2EventChan chan<- singleC2, addPidChan chan<- uint32) error {
 	var checkType types.CheckParamType
 	var dataBuffer *bytes.Buffer
 
@@ -51,7 +61,7 @@ func processTracepointEvent(verboseLog bool, rawEvent []byte, sendEventChan chan
 		copyBuff := bytes.NewBuffer(make([]byte, 0, dataBuffer.Len()))
 		copyBuff.Write(dataBuffer.Bytes())
 
-		err := checkNewExecveEvent(copyBuff, checkType.Pid, checkType.PPid, addPidSSLChan)
+		err := checkNewExecveEvent(copyBuff, checkType.Pid, checkType.PPid, addPidChan)
 		if err != nil {
 			return err
 		}
@@ -77,12 +87,12 @@ func processTracepointEvent(verboseLog bool, rawEvent []byte, sendEventChan chan
 	return nil
 }
 
-func checkNewExecveEvent(dataBuffer *bytes.Buffer, pid, ppid uint32, addPidSSLChan chan<- uint32) error {
+func checkNewExecveEvent(dataBuffer *bytes.Buffer, pid, ppid uint32, addPidChan chan<- uint32) error {
 	var data types.ExecveData
 	if err := readBinaryDataBuffer(dataBuffer, &data); err != nil {
 		return fmt.Errorf("unable to check execve event: %v - %v", readDataBuffErr, err)
 	}
-	execvePidFilterCheck(pid, ppid, formatPrint(data.Filename), addPidSSLChan)
+	execvePidFilterCheck(pid, ppid, formatPrint(data.Filename), addPidChan)
 	return nil
 }
 
@@ -136,7 +146,7 @@ func extractFormatSysEvent(eventType string, dataBuffer *bytes.Buffer, c2EventCh
 		if err := readBinaryDataBuffer(dataBuffer, &data); err != nil {
 			return nil, fmt.Errorf(readDataBuffErr, err)
 		}
-		outputString = fmt.Sprintf(outputString, "execve", fmt.Sprintf("filename: %s  argv: %s  envp: %s", formatPrint(data.Filename), "", ""), "")
+		outputString = fmt.Sprintf(outputString, "execve", fmt.Sprintf("filename: %s  args: %s  ", formatPrint(data.Filename), fmt.Sprintf("%s", data.Argv[:100])), "")
 
 	case types.Sys_enter_read:
 		var data types.ReadData
@@ -167,7 +177,7 @@ func extractFormatSysEvent(eventType string, dataBuffer *bytes.Buffer, c2EventCh
 		if err := readBinaryDataBuffer(dataBuffer, &data); err != nil {
 			return nil, fmt.Errorf(readDataBuffErr, err)
 		}
-		if len(formatPrint(data.Buf)) < 2 {
+		if len(formatPrint(data.Buf)) < 4 {
 			return nil, nil
 		}
 		outputString = fmt.Sprintf(outputString, "write", fmt.Sprintf("fd: %d  buffer: %s  count: %d", data.Fd, formatPrint(data.Buf), data.Count), "")
@@ -291,8 +301,35 @@ func extractFormatSysEvent(eventType string, dataBuffer *bytes.Buffer, c2EventCh
 			c2Event.port = int(data.Port)
 			c2EventChan <- c2Event
 		}
+	case types.Net_dev_queue:
+		var data types.DNSData
+		if err := readBinaryDataBuffer(dataBuffer, &data); err != nil {
+			return nil, fmt.Errorf(readDataBuffErr, err)
+		}
+		domain := dnsPrint(data.Domain)
+		outputString = fmt.Sprintf(outputString, "dns", fmt.Sprintf("domain: %s len: %d", domain, data.Len), "")
+		var c2Event singleC2
+		c2Event.ip = domain
+		c2Event.port = 53
+		c2EventChan <- c2Event
+
 	}
 	return []byte(outputString), nil
+}
+
+func dnsPrint(b [256]byte) string {
+	str := string(b[:])
+	str = strings.Trim(str, "\000") //remove null characters
+
+	if strings.HasPrefix(str, ".") {
+		str = str[1:]
+	}
+
+	if strings.HasSuffix(str, ".") {
+		str = str[:len(str)-1]
+	}
+
+	return str
 }
 
 func formatPrint(b [256]byte) string {

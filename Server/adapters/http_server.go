@@ -482,7 +482,7 @@ func splitArgs(stringArgs string) []string {
 	var regOutput []string
 	var output []string
 
-	re := regexp.MustCompile(`"[^"]*"|\S+`)
+	re := regexp.MustCompile(`[^\s"]+|"([^"]*)"`)
 	regOutput = re.FindAllString(stringArgs, -1)
 
 	for _, field := range regOutput { //to remove extra quotes

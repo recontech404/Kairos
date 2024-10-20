@@ -312,7 +312,7 @@
             {#each Object.entries(metadataC2) as [key, value]}
               <li class="p-2 bg-white rounded border border-gray-300">
                 <span class="font-semibold text-black">C2 Data:</span>
-                <pre class="whitespace-pre-wrap text-black">IP: {key}  Port: {value}</pre>
+                <pre class="whitespace-pre-wrap text-black">IP/DNS: {key}  Port: {value}</pre>
               </li>
             {/each}
           </ul>

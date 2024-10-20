@@ -33,11 +33,14 @@ const (
 	Sys_enter_unlink = "sys_enter_unlink"
 	Handle_unlink    = "handle_unlink"
 
+	Sys_enter_unlinkat = "sys_enter_unlinkat"
+	Handle_unlink_at   = "handle_unlinkat"
+
 	Sys_enter_write = "sys_enter_write"
 	Handle_write    = "handle_write"
 
-	Sys_enter_renameat = "sys_enter_renameat"
-	Handle_renameat    = "handle_renameat"
+	Sys_enter_renameat = "sys_enter_renameat2"
+	Handle_renameat    = "handle_renameat2"
 
 	Sys_enter_fcntl = "sys_enter_fcntl"
 	Handle_fcntl    = "handle_fcntl"
@@ -59,22 +62,26 @@ const (
 
 	Sys_enter_recvfrom = "sys_enter_recvfrom"
 	Handle_recvfrom    = "handle_recvfrom"
+
+	Net_dev_queue = "net_dev_queue"
+	Handle_dns    = "handle_dns"
 )
 
 var EBPFProgramToTracepoint = map[string]string{
-	Handle_mkdir:      Sys_enter_mkdir,
-	Handle_Openat:     Sys_enter_openat,
-	Handle_fork:       Sys_enter_fork,
-	Handle_prctl:      Sys_enter_prctl,
-	Handle_getpid:     Sys_enter_getpid,
-	Handle_getppid:    Sys_enter_getppid,
-	Handle_execve:     Sys_enter_execve, //TODO argv and env are pointers, decide to pursue?
-	Handle_read:       Sys_enter_read,
-	Handle_readlink:   Sys_enter_readlink,
-	Handle_unlink:     Sys_enter_unlink,
-	Handle_write:      Sys_enter_write,
-	Handle_renameat:   Sys_enter_renameat,
-	Handle_fcntl:      Sys_enter_fcntl,
+	Handle_mkdir:     Sys_enter_mkdir,
+	Handle_Openat:    Sys_enter_openat,
+	Handle_fork:      Sys_enter_fork,
+	Handle_prctl:     Sys_enter_prctl,
+	Handle_getpid:    Sys_enter_getpid,
+	Handle_getppid:   Sys_enter_getppid,
+	Handle_execve:    Sys_enter_execve,
+	Handle_read:      Sys_enter_read,
+	Handle_readlink:  Sys_enter_readlink,
+	Handle_unlink:    Sys_enter_unlink,
+	Handle_unlink_at: Sys_enter_unlinkat,
+	Handle_write:     Sys_enter_write,
+	Handle_renameat:  Sys_enter_renameat,
+	// Handle_fcntl: Sys_enter_fcntl, //remove as no real information is used for LLM
 	Handle_socket:     Sys_enter_socket,
 	Handle_getsockopt: Sys_enter_getsockopt,
 	Handle_bind:       Sys_enter_bind,
@@ -104,4 +111,5 @@ var NumberToSysMap = map[int]string{
 	17: Sys_enter_connect,
 	18: Sys_enter_sendto,
 	19: Sys_enter_recvfrom,
+	20: Net_dev_queue,
 }

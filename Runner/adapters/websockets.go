@@ -24,12 +24,13 @@ const (
 
 type (
 	WSHandler struct {
-		conn     *websocket.Conn
-		readMu   *sync.Mutex
-		closedMu *sync.Mutex
-		closed   bool
-		ConnUrl  string
-		ConnTLS  bool
+		conn       *websocket.Conn
+		readMu     *sync.Mutex
+		closedMu   *sync.Mutex
+		closed     bool
+		ConnUrl    string
+		ConnTLS    bool
+		AddPidChan chan uint32
 
 		WS interface {
 			Connect(context.Context, string, bool) error
@@ -50,8 +51,9 @@ var baseWait = 5 //5 seconds
 
 func SetupWebsocket(ctx context.Context, wsc WSConnDetails) *WSHandler {
 	w := WSHandler{
-		readMu:   &sync.Mutex{},
-		closedMu: &sync.Mutex{},
+		readMu:     &sync.Mutex{},
+		closedMu:   &sync.Mutex{},
+		AddPidChan: make(chan uint32),
 	}
 
 	w.ConnUrl = fmt.Sprintf("ws://%s:%d/ws", wsc.Address, wsc.Port)

@@ -38,7 +38,7 @@ func StarteBPFCaptures(ctx context.Context, ws *adapters.WSHandler, verboseLog b
 	if err := resizeMap(bpfModule, sslMapName, 4096*64); err != nil { // ssl map
 		log.Fatalf("unable to resize ebpf ssl map: %v", err)
 	}
-	if err := resizeMap(bpfModule, mapName, 8192); err != nil { // tracepoint map
+	if err := resizeMap(bpfModule, mapName, 8192*64); err != nil { // tracepoint map
 		log.Fatalf("unable to resize tracepoint map: %v", err)
 	}
 
@@ -60,7 +60,7 @@ func StarteBPFCaptures(ctx context.Context, ws *adapters.WSHandler, verboseLog b
 		log.Fatalf("unable to init ring buf: %v", err)
 	}
 
-	rbT.Poll(100)
+	rbT.Poll(50)
 	defer func() {
 		rbT.Stop()
 		rbT.Close()
@@ -108,16 +108,15 @@ func StarteBPFCaptures(ctx context.Context, ws *adapters.WSHandler, verboseLog b
 	setupMetaEventSender(ctx, ws, c2EventChan, sslEventChan, jobDone, senderDoneChan)
 	addSenderChan <- struct{}{}
 
-	addPidSSLChan := make(chan uint32)
-	defer close(addPidSSLChan)
+	defer close(ws.AddPidChan)
 
-	go startPidMapFilterController(ctx, bpfModule, addPidSSLChan)
+	go startPidMapFilterController(ctx, bpfModule, ws.AddPidChan)
 
 	for {
 		select {
 		case e := <-eBPFEventChan:
 			go func() {
-				err := processTracepointEvent(verboseLog, e, sendEventChan, c2EventChan, addPidSSLChan)
+				err := processTracepointEvent(verboseLog, e, sendEventChan, c2EventChan, ws.AddPidChan)
 				if err != nil {
 					log.Errorf("error processing tracepoint: %v", err) //try to continue instead of returning
 				}

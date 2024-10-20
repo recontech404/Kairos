@@ -38,7 +38,7 @@ type (
 
 	ExecveData struct {
 		Filename [256]byte
-		Argv     [256]byte
+		Argv     [4096]byte
 		Envp     [256]byte
 	}
 
@@ -125,6 +125,11 @@ type (
 		Port     uint16
 		Addr_len uint64
 		IP6      [16]byte
+	}
+
+	DNSData struct {
+		Len    uint32
+		Domain [256]byte
 	}
 
 	SSLData struct {

@@ -10,7 +10,8 @@
 - **eBPF Event Capturing** Automatically records relevant eBPF tracepoints used by the malware
 - **LLM Event Analysis** Requests a LLM analysis to provide a human readable summary of the events
 - **C2 Traffic Capture:** Records all incoming and outgoing network connections
-- **Capture SSL Traffic:** Records data sent and recieved from SSL libraries without any modification to the binary *before* encryption using eBPF
+- **DNS Capture:** Records all domains from DNS requests
+- **SSL Traffic Capture:** Records data sent and recieved from SSL libraries without any modification to the binary *before* encryption using eBPF
 - **File-less Malware Support:** Supports file-less malware such as pyloose where there is no binary file
 - **Website Interface:** Upload and view malware samples from the browser 
 

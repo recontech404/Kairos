@@ -1,5 +1,5 @@
 /*
-* Copywright 2024 - recontech404
+* Copyright 2024 - recontech404
 */
 
 //go:build ignore
@@ -7,6 +7,7 @@
 #include <bpf/bpf_helpers.h>
 #include <bpf/bpf_core_read.h>
 #include <bpf/bpf_tracing.h>
+#include <bpf/bpf_endian.h>
 #include "common.h"
 
 char _license[] SEC("license") = "GPL";
@@ -133,8 +134,8 @@ struct getppid_params_t{
 struct execve_params_t{
     char _[16];
     uint64_t *filename_ptr;
-    uint64_t *argv_ptr;
-    uint64_t *envp_ptr;
+    const char *const *argv;
+    const char *const *envp;
 };
 
 struct read_params_t{
@@ -242,6 +243,22 @@ struct recvfrom_params_t{
     uint64_t addr_len;
 };
 
+struct dns_params_t{
+    char _[8];
+    uint64_t skbaddr_ptr;
+};
+
+struct dns_header {
+    __u16 id;
+    __u16 flags;
+    __u16 qdcount;
+    __u16 ancount;
+    __u16 nscount;
+    __u16 arcount;
+};
+
+#define ETH_P_IP	0x0800		/* Internet Protocol packet	*/
+
 static inline unsigned short ntohs(unsigned short netshort) {
     return (netshort << 8) | (netshort >> 8);
 }
@@ -250,6 +267,12 @@ static inline unsigned short ntohs(unsigned short netshort) {
 SEC("tracepoint/syscalls/sys_enter_mkdir")
 int handle_mkdir(struct mkdir_params_t *params) 
 {
+    uint32_t pid = bpf_get_current_pid_tgid() >> 32;
+
+    if(bpf_map_lookup_elem(&pid_map, &pid) == NULL){
+        return 0;
+    }
+
     struct mkdir_event_t *event;
     event = bpf_ringbuf_reserve(&events, sizeof(*event), 0);
     if (!event) {
@@ -260,7 +283,7 @@ int handle_mkdir(struct mkdir_params_t *params)
 
     event->paramtype = 1; //tells Go prog which struct to extract into
 
-    event->host_pid = bpf_get_current_pid_tgid() >> 32;
+    event->host_pid = pid;
     event->host_ppid = BPF_CORE_READ(task, real_parent, tgid);
 
     char *pathname_ptr = (char *)params->pathname_ptr;    
@@ -274,6 +297,12 @@ int handle_mkdir(struct mkdir_params_t *params)
 SEC("tracepoint/syscalls/sys_enter_mkdirat")
 int handle_mkdirat(struct mkdirat_params_arm64_t *params) 
 {
+    uint32_t pid = bpf_get_current_pid_tgid() >> 32;
+
+    if(bpf_map_lookup_elem(&pid_map, &pid) == NULL){
+        return 0;
+    }
+
     struct mkdir_event_t *event;
     event = bpf_ringbuf_reserve(&events, sizeof(*event), 0);
     if (!event) {
@@ -284,7 +313,7 @@ int handle_mkdirat(struct mkdirat_params_arm64_t *params)
 
     event->paramtype = 1; //tells Go prog which struct to extract into
 
-    event->host_pid = bpf_get_current_pid_tgid() >> 32;
+    event->host_pid = pid;
     event->host_ppid = BPF_CORE_READ(task, real_parent, tgid);
 
     char *pathname_ptr = (char *)params->pathname_ptr;    
@@ -298,6 +327,12 @@ int handle_mkdirat(struct mkdirat_params_arm64_t *params)
 SEC("tracepoint/syscalls/sys_enter_openat")
 int handle_openat(struct openat_params_t *params)
 {
+    uint32_t pid = bpf_get_current_pid_tgid() >> 32;
+
+    if(bpf_map_lookup_elem(&pid_map, &pid) == NULL){
+        return 0;
+    }
+
     struct openat_event_t *event;
 
     event = bpf_ringbuf_reserve(&events, sizeof(*event), 0);
@@ -309,7 +344,7 @@ int handle_openat(struct openat_params_t *params)
 
     event->paramtype = 2;
 
-    event->host_pid = bpf_get_current_pid_tgid() >> 32;
+    event->host_pid = pid;
     event->host_ppid = BPF_CORE_READ(task, real_parent, tgid);
 
     char *filename_ptr = (char *)params->filename_ptr;
@@ -325,6 +360,12 @@ int handle_openat(struct openat_params_t *params)
 SEC("tracepoint/syscalls/sys_enter_fork")
 int handle_fork(struct fork_params_t *params)
 {
+    uint32_t pid = bpf_get_current_pid_tgid() >> 32;
+
+    if(bpf_map_lookup_elem(&pid_map, &pid) == NULL){
+        return 0;
+    }
+
     struct fork_event_t *event;
 
     event = bpf_ringbuf_reserve(&events, sizeof(*event), 0);
@@ -336,7 +377,7 @@ int handle_fork(struct fork_params_t *params)
 
     event->paramtype = 3;
 
-    event->host_pid = bpf_get_current_pid_tgid() >> 32;
+    event->host_pid = pid;
     event->host_ppid = BPF_CORE_READ(task, real_parent, tgid);
 
     bpf_ringbuf_submit(event, 0);
@@ -347,6 +388,12 @@ int handle_fork(struct fork_params_t *params)
 SEC("tracepoint/syscalls/sys_enter_prctl")
 int handle_prctl(struct prctl_params_t *params)
 {
+    uint32_t pid = bpf_get_current_pid_tgid() >> 32;
+
+    if(bpf_map_lookup_elem(&pid_map, &pid) == NULL){
+        return 0;
+    }
+
     struct prctl_event_t *event;
 
     event = bpf_ringbuf_reserve(&events, sizeof(*event), 0);
@@ -358,7 +405,7 @@ int handle_prctl(struct prctl_params_t *params)
 
     event->paramtype = 4;
 
-    event->host_pid = bpf_get_current_pid_tgid() >> 32;
+    event->host_pid = pid;
     event->host_ppid = BPF_CORE_READ(task, real_parent, tgid);
 
     event->option = (u64)params->option;
@@ -375,6 +422,12 @@ int handle_prctl(struct prctl_params_t *params)
 SEC("tracepoint/syscalls/sys_enter_getpid")
 int handle_getpid(struct getpid_params_t *params)
 {
+    uint32_t pid = bpf_get_current_pid_tgid() >> 32;
+
+    if(bpf_map_lookup_elem(&pid_map, &pid) == NULL){
+        return 0;
+    }
+
     struct getpid_event_t *event;
 
     event = bpf_ringbuf_reserve(&events, sizeof(*event), 0);
@@ -386,7 +439,7 @@ int handle_getpid(struct getpid_params_t *params)
 
     event->paramtype = 5;
 
-    event->host_pid = bpf_get_current_pid_tgid() >> 32;
+    event->host_pid = pid;
     event->host_ppid = BPF_CORE_READ(task, real_parent, tgid);
 
     bpf_ringbuf_submit(event, 0);
@@ -397,6 +450,12 @@ int handle_getpid(struct getpid_params_t *params)
 SEC("tracepoint/syscalls/sys_enter_getppid")
 int handle_getppid(struct getppid_params_t *params)
 {
+    uint32_t pid = bpf_get_current_pid_tgid() >> 32;
+
+    if(bpf_map_lookup_elem(&pid_map, &pid) == NULL){
+        return 0;
+    }
+
     struct getppid_event_t *event;
 
     event = bpf_ringbuf_reserve(&events, sizeof(*event), 0);
@@ -408,7 +467,7 @@ int handle_getppid(struct getppid_params_t *params)
 
     event->paramtype = 6;
 
-    event->host_pid = bpf_get_current_pid_tgid() >> 32;
+    event->host_pid = pid;
     event->host_ppid = BPF_CORE_READ(task, real_parent, tgid);
 
     bpf_ringbuf_submit(event, 0);
@@ -418,6 +477,8 @@ int handle_getppid(struct getppid_params_t *params)
 
 SEC("tracepoint/syscalls/sys_enter_execve")
 int handle_execve(struct execve_params_t *params){
+    //do not filter on pid for execve to detect new malware
+
     struct execve_event_t *event;
 
     event = bpf_ringbuf_reserve(&events, sizeof(*event), 0);
@@ -435,11 +496,35 @@ int handle_execve(struct execve_params_t *params){
     char *filename_ptr = (char *)params->filename_ptr;
     bpf_core_read_user_str(&event->filename, sizeof(event->filename), filename_ptr);
 
-    char *argv_ptr = (char *)params->argv_ptr;
-    bpf_core_read_user_str(&event->argv, sizeof(event->argv), argv_ptr);
+    int ret;
+    const char *arg;
 
-    char *envp_ptr = (char *)params->envp_ptr;
-    bpf_core_read_user_str(&event->envp, sizeof(event->envp), envp_ptr);
+    for (int i = 0; i < 60; i++) {
+        const char *arg;
+        if (bpf_probe_read(&arg, sizeof(arg), &params->argv[i]) < 0 || !arg){
+            break; 
+        }
+
+        if (event->args_size > MAX_DATA_SIZE - ARGSIZE + 1){ //ensure last byte for null term
+            break;
+        }
+
+        ret = bpf_probe_read_user_str(&event->argv[event->args_size], ARGSIZE, arg);
+        if (ret < 0){
+            break;
+        }
+
+        event->args_size += ret;
+
+        if (event->args_size < MAX_DATA_SIZE){
+            event->argv[event->args_size] = ' '; // add space
+            event->args_size++;
+        }
+    }
+
+    if(event->args_size < MAX_DATA_SIZE){
+        event->argv[event->args_size] = '\0'; //null term
+    }
 
     bpf_ringbuf_submit(event, 0);
 
@@ -449,6 +534,12 @@ int handle_execve(struct execve_params_t *params){
 SEC("tracepoint/syscalls/sys_enter_read")
 int handle_read(struct read_params_t *params)
 {
+    uint32_t pid = bpf_get_current_pid_tgid() >> 32;
+
+    if(bpf_map_lookup_elem(&pid_map, &pid) == NULL){
+        return 0;
+    }
+
     struct read_event_t *event;
 
     event = bpf_ringbuf_reserve(&events, sizeof(*event), 0);
@@ -460,7 +551,7 @@ int handle_read(struct read_params_t *params)
 
     event->paramtype = 8;
 
-    event->host_pid = bpf_get_current_pid_tgid() >> 32;
+    event->host_pid = pid;
     event->host_ppid = BPF_CORE_READ(task, real_parent, tgid);
 
     event->fd = (u64)params->fd;
@@ -478,6 +569,12 @@ int handle_read(struct read_params_t *params)
 SEC("tracepoint/syscalls/sys_enter_readlink")
 int handle_readlink(struct readlink_params_t *params)
 {
+    uint32_t pid = bpf_get_current_pid_tgid() >> 32;
+
+    if(bpf_map_lookup_elem(&pid_map, &pid) == NULL){
+        return 0;
+    }
+
     struct readlink_event_t *event;
 
     event = bpf_ringbuf_reserve(&events, sizeof(*event), 0);
@@ -489,7 +586,7 @@ int handle_readlink(struct readlink_params_t *params)
 
     event->paramtype = 9;
 
-    event->host_pid = bpf_get_current_pid_tgid() >> 32;
+    event->host_pid = pid;
     event->host_ppid = BPF_CORE_READ(task, real_parent, tgid);
 
     char *path_ptr = (char *)params->path_ptr;
@@ -508,6 +605,12 @@ int handle_readlink(struct readlink_params_t *params)
 SEC("tracepoint/syscalls/sys_enter_readlinkat")
 int handle_readlinkat(struct readlinkat_params_arm64_t *params)
 {
+    uint32_t pid = bpf_get_current_pid_tgid() >> 32;
+
+    if(bpf_map_lookup_elem(&pid_map, &pid) == NULL){
+        return 0;
+    }
+
     struct readlink_event_t *event;
 
     event = bpf_ringbuf_reserve(&events, sizeof(*event), 0);
@@ -519,7 +622,7 @@ int handle_readlinkat(struct readlinkat_params_arm64_t *params)
 
     event->paramtype = 9;
 
-    event->host_pid = bpf_get_current_pid_tgid() >> 32;
+    event->host_pid = pid;
     event->host_ppid = BPF_CORE_READ(task, real_parent, tgid);
 
     char *path_ptr = (char *)params->path_ptr;
@@ -539,6 +642,12 @@ int handle_readlinkat(struct readlinkat_params_arm64_t *params)
 SEC("tracepoint/syscalls/sys_enter_unlink")
 int handle_unlink(struct unlink_params_t *params)
 {
+    uint32_t pid = bpf_get_current_pid_tgid() >> 32;
+
+    if(bpf_map_lookup_elem(&pid_map, &pid) == NULL){
+        return 0;
+    }
+
     struct unlink_event_t *event;
 
     event = bpf_ringbuf_reserve(&events, sizeof(*event), 0);
@@ -550,7 +659,7 @@ int handle_unlink(struct unlink_params_t *params)
 
     event->paramtype = 10;
 
-    event->host_pid = bpf_get_current_pid_tgid() >> 32;
+    event->host_pid = pid;
     event->host_ppid = BPF_CORE_READ(task, real_parent, tgid);
 
     char *pathname_ptr = (char *)params->pathname_ptr;
@@ -564,6 +673,12 @@ int handle_unlink(struct unlink_params_t *params)
 SEC("tracepoint/syscalls/sys_enter_unlinkat")
 int handle_unlinkat(struct unlinkat_params_arm64_t *params)
 {
+    uint32_t pid = bpf_get_current_pid_tgid() >> 32;
+
+    if(bpf_map_lookup_elem(&pid_map, &pid) == NULL){
+        return 0;
+    }
+
     struct unlink_event_t *event;
 
     event = bpf_ringbuf_reserve(&events, sizeof(*event), 0);
@@ -575,7 +690,7 @@ int handle_unlinkat(struct unlinkat_params_arm64_t *params)
 
     event->paramtype = 10;
 
-    event->host_pid = bpf_get_current_pid_tgid() >> 32;
+    event->host_pid = pid;
     event->host_ppid = BPF_CORE_READ(task, real_parent, tgid);
 
     char *pathname_ptr = (char *)params->pathname_ptr;
@@ -589,6 +704,12 @@ int handle_unlinkat(struct unlinkat_params_arm64_t *params)
 SEC("tracepoint/syscalls/sys_enter_write")
 int handle_write(struct write_params_t *params)
 {
+    uint32_t pid = bpf_get_current_pid_tgid() >> 32;
+
+    if(bpf_map_lookup_elem(&pid_map, &pid) == NULL){
+        return 0;
+    }
+
     struct write_event_t *event;
 
     event = bpf_ringbuf_reserve(&events, sizeof(*event), 0);
@@ -600,7 +721,7 @@ int handle_write(struct write_params_t *params)
 
     event->paramtype = 11;
 
-    event->host_pid = bpf_get_current_pid_tgid() >> 32;
+    event->host_pid = pid;
     event->host_ppid = BPF_CORE_READ(task, real_parent, tgid);
 
     event->fd = (u64)params->fd;
@@ -615,8 +736,14 @@ int handle_write(struct write_params_t *params)
     return 0;
 }
 
-SEC("tracepoint/syscalls/sys_enter_renameat")
-int handle_renameat(struct renameat_params_t *params){
+SEC("tracepoint/syscalls/sys_enter_renameat2")
+int handle_renameat2(struct renameat_params_t *params){
+    uint32_t pid = bpf_get_current_pid_tgid() >> 32;
+
+    if(bpf_map_lookup_elem(&pid_map, &pid) == NULL){
+        return 0;
+    }
+
     struct renameat_event_t *event;
 
     event = bpf_ringbuf_reserve(&events, sizeof(*event), 0);
@@ -628,7 +755,7 @@ int handle_renameat(struct renameat_params_t *params){
 
     event->paramtype = 12;
 
-    event->host_pid = bpf_get_current_pid_tgid() >> 32;
+    event->host_pid = pid;
     event->host_ppid = BPF_CORE_READ(task, real_parent, tgid);
 
     event->olddfd = (u64)params->olddfd;
@@ -649,6 +776,12 @@ int handle_renameat(struct renameat_params_t *params){
 SEC("tracepoint/syscalls/sys_enter_fcntl")
 int handle_fcntl(struct fcntl_params_t *params)
 {
+    uint32_t pid = bpf_get_current_pid_tgid() >> 32;
+
+    if(bpf_map_lookup_elem(&pid_map, &pid) == NULL){
+        return 0;
+    }
+
     struct fcntl_event_t *event;
 
     event = bpf_ringbuf_reserve(&events, sizeof(*event), 0);
@@ -660,7 +793,7 @@ int handle_fcntl(struct fcntl_params_t *params)
 
     event->paramtype = 13;
 
-    event->host_pid = bpf_get_current_pid_tgid() >> 32;
+    event->host_pid = pid;
     event->host_ppid = BPF_CORE_READ(task, real_parent, tgid);
 
     event->fd = (u64)params->fd;
@@ -675,6 +808,12 @@ int handle_fcntl(struct fcntl_params_t *params)
 SEC("tracepoint/syscalls/sys_enter_socket")
 int handle_socket(struct socket_params_t *params)
 {
+    uint32_t pid = bpf_get_current_pid_tgid() >> 32;
+
+    if(bpf_map_lookup_elem(&pid_map, &pid) == NULL){
+        return 0;
+    }
+
     struct socket_event_t *event;
 
     event = bpf_ringbuf_reserve(&events, sizeof(*event), 0);
@@ -686,7 +825,7 @@ int handle_socket(struct socket_params_t *params)
 
     event->paramtype = 14;
 
-    event->host_pid = bpf_get_current_pid_tgid() >> 32;
+    event->host_pid = pid;
     event->host_ppid = BPF_CORE_READ(task, real_parent, tgid);
 
     event->family = (u64)params->family;
@@ -701,6 +840,12 @@ int handle_socket(struct socket_params_t *params)
 SEC("tracepoint/syscalls/sys_enter_getsockopt")
 int handle_getsockopt(struct getsockopt_params_t *params)
 {
+    uint32_t pid = bpf_get_current_pid_tgid() >> 32;
+
+    if(bpf_map_lookup_elem(&pid_map, &pid) == NULL){
+        return 0;
+    }
+
     struct getsockopt_event_t *event;
 
     event = bpf_ringbuf_reserve(&events, sizeof(*event), 0);
@@ -712,7 +857,7 @@ int handle_getsockopt(struct getsockopt_params_t *params)
 
     event->paramtype = 15;
 
-    event->host_pid = bpf_get_current_pid_tgid() >> 32;
+    event->host_pid = pid;
     event->host_ppid = BPF_CORE_READ(task, real_parent, tgid);
 
     event->fd = (u64)params->fd;
@@ -732,6 +877,12 @@ int handle_getsockopt(struct getsockopt_params_t *params)
 SEC("tracepoint/syscalls/sys_enter_bind")
 int handle_bind(struct bind_params_t *params)
 {
+    uint32_t pid = bpf_get_current_pid_tgid() >> 32;
+
+    if(bpf_map_lookup_elem(&pid_map, &pid) == NULL){
+        return 0;
+    }
+
     struct bind_event_t *event;
 
     event = bpf_ringbuf_reserve(&events, sizeof(*event), 0);
@@ -743,7 +894,7 @@ int handle_bind(struct bind_params_t *params)
 
     event->paramtype = 16;
 
-    event->host_pid = bpf_get_current_pid_tgid() >> 32;
+    event->host_pid = pid;
     event->host_ppid = BPF_CORE_READ(task, real_parent, tgid);
 
     event->fd = (u64)params->fd;
@@ -774,6 +925,12 @@ int handle_bind(struct bind_params_t *params)
 SEC("tracepoint/syscalls/sys_enter_connect")
 int handle_connect(struct connect_params_t *params)
 {
+    uint32_t pid = bpf_get_current_pid_tgid() >> 32;
+
+    if(bpf_map_lookup_elem(&pid_map, &pid) == NULL){
+        return 0;
+    }
+
     struct connect_event_t *event;
 
     event = bpf_ringbuf_reserve(&events, sizeof(*event), 0);
@@ -785,7 +942,7 @@ int handle_connect(struct connect_params_t *params)
 
     event->paramtype = 17;
 
-    event->host_pid = bpf_get_current_pid_tgid() >> 32;
+    event->host_pid = pid;
     event->host_ppid = BPF_CORE_READ(task, real_parent, tgid);
 
     event->fd = (u64)params->fd;
@@ -816,6 +973,12 @@ int handle_connect(struct connect_params_t *params)
 SEC("tracepoint/syscalls/sys_enter_sendto")
 int handle_sendto(struct sendto_params_t *params)
 {
+    uint32_t pid = bpf_get_current_pid_tgid() >> 32;
+
+    if(bpf_map_lookup_elem(&pid_map, &pid) == NULL){
+        return 0;
+    }
+
     struct sendto_event_t *event;
 
     event = bpf_ringbuf_reserve(&events, sizeof(*event), 0);
@@ -827,7 +990,7 @@ int handle_sendto(struct sendto_params_t *params)
 
     event->paramtype = 18;
 
-    event->host_pid = bpf_get_current_pid_tgid() >> 32;
+    event->host_pid = pid;
     event->host_ppid = BPF_CORE_READ(task, real_parent, tgid);
 
     event->fd = (u64)params->fd;
@@ -860,6 +1023,12 @@ int handle_sendto(struct sendto_params_t *params)
 SEC("tracepoint/syscalls/sys_enter_recvfrom")
 int handle_recvfrom(struct recvfrom_params_t *params)
 {
+    uint32_t pid = bpf_get_current_pid_tgid() >> 32;
+
+    if(bpf_map_lookup_elem(&pid_map, &pid) == NULL){
+        return 0;
+    }
+
     struct recvfrom_event_t *event;
 
     event = bpf_ringbuf_reserve(&events, sizeof(*event), 0);
@@ -871,7 +1040,7 @@ int handle_recvfrom(struct recvfrom_params_t *params)
 
     event->paramtype = 19;
 
-    event->host_pid = bpf_get_current_pid_tgid() >> 32;
+    event->host_pid = pid;
     event->host_ppid = BPF_CORE_READ(task, real_parent, tgid);
 
     event->fd = (u64)params->fd;
@@ -900,6 +1069,94 @@ int handle_recvfrom(struct recvfrom_params_t *params)
     bpf_ringbuf_submit(event, 0);
 
     return 0;    
+}
+
+SEC("tracepoint/net/net_dev_queue")
+int handle_dns(struct dns_params_t *ctx){
+    uint32_t pid = bpf_get_current_pid_tgid() >> 32;
+
+    if(bpf_map_lookup_elem(&pid_map, &pid) == NULL){
+        return 0;
+    }
+
+    struct sk_buff *skb_pointer = (void *)ctx->skbaddr_ptr;
+    
+    struct sk_buff skb;
+    bpf_probe_read(&skb, sizeof(skb), skb_pointer);
+
+    struct iphdr iph;
+    bpf_core_read(&iph, sizeof(iph), skb.head + skb.network_header);
+
+    if (skb.protocol != bpf_htons(ETH_P_IP)){
+        return 0; //skip non IP packets
+    }
+
+    int dns_offset = 0;
+
+    if (iph.protocol == IPPROTO_TCP){
+        struct tcphdr tcph;
+        bpf_core_read(&tcph, sizeof(tcph), skb.head + skb.transport_header);
+        
+        if (tcph.source != 13568 && tcph.dest != 13568){ //ntohs(53) = 13568
+            return 0; //ignore non dns requests
+        }
+
+        dns_offset = sizeof(struct tcphdr);
+
+    } else if (iph.protocol == IPPROTO_UDP){
+        struct udphdr udph;
+        bpf_core_read(&udph, sizeof(udph), skb.head + skb.transport_header);
+        if (udph.source != 13568 && udph.dest != 13568){
+            return 0;    
+        }
+    
+        dns_offset = sizeof(struct udphdr);
+
+    } else {
+        return 0;
+    }
+
+    struct dns_event_t *event;
+    event = bpf_ringbuf_reserve(&events, sizeof(struct dns_event_t), 0);
+    if (!event){
+        return 0;
+    }
+
+    struct task_struct *task = (struct task_struct *)bpf_get_current_task();
+
+    event->paramtype = 20;
+
+    event->host_pid = pid;
+    event->host_ppid = BPF_CORE_READ(task, real_parent, tgid);
+
+    struct dns_header dns_hdr;
+    bpf_core_read(&dns_hdr, sizeof(dns_hdr), skb.head + skb.transport_header + dns_offset);
+
+    char *question = event->domain;
+    int offset = skb.transport_header + dns_offset + sizeof(dns_hdr);
+    int len = 0;
+
+    // Read domain name
+    for (int i = 0; i < 255; i++) {
+        char c;
+        bpf_core_read(&c, 1, skb.head + offset + i);
+        if (c == 0) {
+            question[len++] = '.';
+            break;
+        }
+        if (c < 32) {
+            question[len++] = '.';
+        } else {
+            question[len++] = c;
+        }
+    }
+    question[len] = '\0';
+
+    event->len = len;
+
+    bpf_ringbuf_submit(event, 0);
+    
+    return 0;
 }
 
 /********************************************** 
